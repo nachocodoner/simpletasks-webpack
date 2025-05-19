@@ -55,7 +55,7 @@ function createSwcConfig() {
     return {
         test: /\.jsx?$/,
         exclude: /node_modules/,
-        loader: 'swc-loader',
+        loader: 'builtin:swc-loader',
         options: {
             jsc: {
                 baseUrl: __dirname,
@@ -65,15 +65,6 @@ function createSwcConfig() {
                 parser: {
                     syntax: 'ecmascript',
                     jsx: true, // enable if you use JSX
-                },
-                transform: {
-                    react: {
-                        pragma: 'React.createElement',
-                        pragmaFrag: 'React.Fragment',
-                        throwIfNamespace: true,
-                        development: process.env.NODE_ENV === 'development',
-                        useBuiltIns: true,
-                    },
                 },
                 target: 'es2015', // specify the JavaScript version you want
             },
