@@ -4,7 +4,7 @@
   "version": "1.0.3",
   "private": true,
   "scripts": {
-    "start:meteor": "meteor run --exclude-archs web.browser.legacy,web.cordova",
+    "start:meteor": "meteor run",
     "start:webpack:client": "webpack build --config-name=client-development --mode=development",
     "start:webpack:server": "webpack build --config-name=server-development --mode=development",
     "start:webpack": "concurrently -n start:webpack:client,start:webpack:server \"meteor npm run start:webpack:client\" \"meteor npm run start:webpack:server\"",
