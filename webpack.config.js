@@ -51,6 +51,32 @@ function createEsbuildConfig() {
     };
 }
 
+function createSwcConfig() {
+    return {
+        test: /\.jsx?$/,
+        exclude: /node_modules/,
+        loader: 'swc-loader',
+        options: {
+            jsc: {
+                parser: {
+                    syntax: 'ecmascript',
+                    jsx: true, // enable if you use JSX
+                },
+                transform: {
+                    react: {
+                        pragma: 'React.createElement',
+                        pragmaFrag: 'React.Fragment',
+                        throwIfNamespace: true,
+                        development: process.env.NODE_ENV === 'development',
+                        useBuiltIns: true,
+                    },
+                },
+                target: 'es2015', // specify the JavaScript version you want
+            },
+        }
+    };
+}
+
 function createCacheStrategy() {
     return {
         cache: {
@@ -91,7 +117,7 @@ const clientCommonConfig = {
     },
     module: {
         rules: [
-            createEsbuildConfig(),
+            createSwcConfig(),
             excludeBlockStrip({ exclude: 'server' }),
             excludeBlockStrip({ exclude: 'test' }),
             ...((mode === 'development' ? ([excludeBlockStrip({ exclude: 'production' })]) : [excludeBlockStrip({ exclude: 'development' })])),
@@ -143,7 +169,7 @@ const serverCommonConfig = {
     },
     module: {
         rules: [
-            createEsbuildConfig(),
+            createSwcConfig(),
             excludeBlockStrip({ exclude: 'client' }),
             excludeBlockStrip({ exclude: 'test' }),
             ...((mode === 'development' ? ([excludeBlockStrip({ exclude: 'production' })]) : [excludeBlockStrip({ exclude: 'development' })])),

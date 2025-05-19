@@ -70,7 +70,7 @@ export default function TasksPage() {
                   size="xs"
                   onClick={() => Meteor.call('insertRandomTask')}
               >
-                Add Random Task
+                Add Random Task ://
               </Button>
             </Stack>
           </HStack>
