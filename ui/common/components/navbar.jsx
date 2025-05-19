@@ -36,7 +36,7 @@ export function Navbar() {
             fontFamily="heading"
             textAlign="left"
           >
-            Simple Tasks (Webpack)
+            Simple Tasks (Rspack)
           </Text>
         </Flex>
 

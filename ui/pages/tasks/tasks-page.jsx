@@ -26,7 +26,7 @@ export default function TasksPage() {
             bgGradient="linear(to-l, #675AAA, #4399E1)"
             bgClip="text"
           >
-            Simple Tasks (Webpack)
+            Simple Tasks (Rspack)
           </Text>
         </Heading>
       </Stack>

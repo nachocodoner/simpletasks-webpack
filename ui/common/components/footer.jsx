@@ -86,8 +86,8 @@ export function Footer() {
               sm: 'start',
             }}
         >
-          <a href="https://webpack.js.org" target="_blank">
-            Webpack
+          <a href="https://rspack.dev" target="_blank">
+            Rspack
           </a>
           {' '}by{' '}
           <a href="https://twitter.com/nachocodoner" target="_blank">

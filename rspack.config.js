@@ -1,8 +1,8 @@
-// webpack.config.js
+// rspack.config.js
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 const nodeExternals = require('webpack-node-externals');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const webpack = require('webpack');
+const rspack = require('@rspack/core');
 
 const enableBundleVisualizer = process.env.ENABLE_BUNDLE_VISUALIZER === 'true';
 
@@ -58,6 +58,10 @@ function createSwcConfig() {
         loader: 'swc-loader',
         options: {
             jsc: {
+                baseUrl: __dirname,
+                paths: {
+                    '/*': ['*']
+                },
                 parser: {
                     syntax: 'ecmascript',
                     jsx: true, // enable if you use JSX
@@ -79,10 +83,16 @@ function createSwcConfig() {
 
 function createCacheStrategy() {
     return {
-        cache: {
-            name: `esbuild-${mode}`,
-            type: 'filesystem',
-            allowCollectingMemory: true,
+        cache: true,
+        experiments: {
+            cache: {
+                version: `esbuild-${mode}`,
+                type: 'persistent',
+                storage: {
+                    type: 'filesystem',
+                    directory: 'node_modules/.cache/rspack',
+                },
+            },
         },
     };
 }
@@ -136,7 +146,7 @@ const clientCommonConfig = {
             filename: '../client/main.html',
             excludeChunks: ['main'],
         }),
-        new webpack.DefinePlugin({
+        new rspack.DefinePlugin({
             'Meteor.isClient': JSON.stringify(true),
             'Meteor.isServer': JSON.stringify(false),
             'Meteor.isTest': JSON.stringify(false),
@@ -183,7 +193,7 @@ const serverCommonConfig = {
         ...(mode === 'development' ? [ignoreNpmModules] : []),
     ],
     plugins: [
-        new webpack.DefinePlugin({
+        new rspack.DefinePlugin({
             'Meteor.isServer': JSON.stringify(true),
             'Meteor.isClient': JSON.stringify(false),
             'Meteor.isTest': JSON.stringify(false),
