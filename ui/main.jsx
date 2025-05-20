@@ -21,3 +21,4 @@ Meteor.startup(() => {
     </UIProvider>
   );
 });
+console.log("--> (main.jsx-Line: 13)\n Meteor: ", Meteor, __webpack_require__);

@@ -3,6 +3,10 @@ const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 const nodeExternals = require('webpack-node-externals');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const rspack = require('@rspack/core');
+const { HotModuleReplacementPlugin } = require('@rspack/core');
+const ReactRefreshPlugin = require('@rspack/plugin-react-refresh');
+const path = require('path');
+const fs = require('fs');
 
 const enableBundleVisualizer = process.env.ENABLE_BUNDLE_VISUALIZER === 'true';
 
@@ -26,7 +30,7 @@ function excludeBlockStrip(excludeConfig) {
         ? {
             test: /\.jsx?$/i,
             enforce: 'pre',
-            exclude: /node_modules|dist|\.meteor/,
+            exclude: /node_modules|dist|\.meteor|\.meteor\/local/,
             use: [
                 {
                     loader: 'webpack-strip-block',
@@ -54,7 +58,7 @@ function createEsbuildConfig() {
 function createSwcConfig() {
     return {
         test: /\.jsx?$/,
-        exclude: /node_modules/,
+        exclude: /node_modules|\.meteor\/local/,
         loader: 'builtin:swc-loader',
         options: {
             jsc: {
@@ -99,16 +103,35 @@ const watchOptions = {
     ],
 };
 
+// Function to create HtmlWebpackPlugin instance only for client builds
+function createHtmlWebpackPlugin(target) {
+    // Skip HtmlWebpackPlugin for server builds
+    if (target === 'node') {
+        return [];
+    }
+
+    // Only use HtmlWebpackPlugin if the template file exists
+    return fs.existsSync(path.resolve(__dirname, 'templates/main.html')) ? [
+        new HtmlWebpackPlugin({
+            template: 'templates/main.html',
+            filename: '../client/main.html',
+            excludeChunks: ['main'],
+            // Set the context to avoid looking in .meteor/local directory
+            context: path.resolve(__dirname),
+        })
+    ] : [];
+}
+
 const clientCommonConfig = {
     target: 'web',
-    entry: './ui/main.jsx',
+    entry: path.resolve(__dirname, 'ui/main.jsx'),
     output: {
-        path: `${__dirname}/public`,
-        filename: ({ chunk }) => (chunk?.name === 'main' ? '../client/client.js' : '../client/[name].js'),
-        libraryTarget: 'commonjs',
-        publicPath: '/',
+        path: path.resolve(__dirname, 'public'),
+        // put client.js under public/client/client.js
+        filename: 'client/client.js',
+        publicPath: '/__rspack__/',
         chunkFilename: 'bundles/[id].[chunkhash].js',
-        assetModuleFilename: 'public/assets/[hash][ext][query]',
+        assetModuleFilename: 'assets/[hash][ext][query]',
     },
     optimization: {
         usedExports: true,
@@ -118,6 +141,13 @@ const clientCommonConfig = {
     },
     module: {
         rules: [
+            // Explicitly exclude .meteor/local directory from being processed
+            // {
+            //     test: /\.meteor\/local/,
+            //     exclude: /node_modules/,
+            //     use: 'builtin:empty-loader',
+            //     sideEffects: false,
+            // },
             createSwcConfig(),
             excludeBlockStrip({ exclude: 'server' }),
             excludeBlockStrip({ exclude: 'test' }),
@@ -132,11 +162,7 @@ const clientCommonConfig = {
         ...(mode === 'development' ? [ignoreNpmModules] : []),
     ],
     plugins: [
-        new HtmlWebpackPlugin({
-            template: 'templates/main.html',
-            filename: '../client/main.html',
-            excludeChunks: ['main'],
-        }),
+        ...createHtmlWebpackPlugin('web'),
         new rspack.DefinePlugin({
             'Meteor.isClient': JSON.stringify(true),
             'Meteor.isServer': JSON.stringify(false),
@@ -154,11 +180,22 @@ const clientCommonConfig = {
     watchOptions,
     devtool: 'cheap-source-map',
     ...createCacheStrategy(),
+    devServer: {
+        static: {
+            directory: path.resolve(__dirname, 'public'),
+            publicPath: '/__rspack__/',
+        },
+        hot: true,
+        port: 3005,
+        client: {
+            webSocketURL: 'ws://localhost:3000/ws'
+        }
+    },
 };
 
 const serverCommonConfig = {
     target: 'node',
-    entry: './api/main.js',
+    entry: path.resolve(__dirname, 'api/main.js'),
     output: {
         path: `${__dirname}/server`,
         filename: 'server.js',
@@ -170,6 +207,13 @@ const serverCommonConfig = {
     },
     module: {
         rules: [
+            // Explicitly exclude .meteor/local directory from being processed
+            {
+                test: /\.meteor\/local/,
+                use: 'builtin:empty-loader',
+                // This ensures that any files in .meteor/local are not processed
+                sideEffects: false,
+            },
             createSwcConfig(),
             excludeBlockStrip({ exclude: 'client' }),
             excludeBlockStrip({ exclude: 'test' }),
@@ -178,12 +222,28 @@ const serverCommonConfig = {
     },
     resolve: {
         extensions: ['.js', '.jsx', '.json'],
+        // Explicitly ignore .meteor/local directory
+        modules: [
+            'node_modules',
+            path.resolve(__dirname),
+        ],
+        // Exclude .meteor/local directory from module resolution
+        conditionNames: ['import', 'require', 'node', 'default'],
     },
     externals: [
         /^(meteor.*|react|react-dom)/,
         ...(mode === 'development' ? [ignoreNpmModules] : []),
     ],
+    // Explicitly ignore .meteor/local directory
+    ignoreWarnings: [
+        {
+            module: /\.meteor\/local/,
+        },
+    ],
+    // Disable HtmlWebpackPlugin for server builds
+    htmlWebpackPluginOptions: false,
     plugins: [
+        ...createHtmlWebpackPlugin('node'),
         new rspack.DefinePlugin({
             'Meteor.isServer': JSON.stringify(true),
             'Meteor.isClient': JSON.stringify(false),
@@ -207,12 +267,53 @@ const clientDevelopmentConfig = {
     ...clientCommonConfig,
     name: 'client-development',
     mode: 'development',
+    // entry: [
+    //     // webpack-hot-middleware client
+    //     'webpack-hot-middleware/client?path=/__webpack_hmr&reload=true',
+    //     path.resolve(__dirname, 'ui/main.jsx')
+    // ],
+    output: {
+        ...clientCommonConfig.output,
+        publicPath: '/__rspack__/',
+    },
+    devServer: {
+        ...clientCommonConfig.devServer,
+        client: {
+            webSocketURL: 'ws://localhost:3000/ws'
+        }
+    },
+    // Override externals to not exclude React for HMR
+    externals: [
+        /^meteor.*/,
+        ...(mode === 'development' ? [ignoreNpmModules] : []),
+    ],
+    plugins: [
+        ...clientCommonConfig.plugins,
+        // new rspack.BannerPlugin({
+        //     banner:   'window.__rspack_require__ = __webpack_require__;',
+        //     raw:      true,         // inject exactly that string, not wrapped in comments
+        //     entryOnly: false        // append to every chunk (so both client.js and chunks get it)
+        // }),
+        new ReactRefreshPlugin(),          // fast Refresh for React
+        new HotModuleReplacementPlugin()   // expose HMR hooks to middleware
+    ],
 };
 
 const serverDevelopmentConfig = {
     ...serverCommonConfig,
     name: 'server-development',
     mode: 'development',
+    // Add additional configuration to prevent HtmlWebpackPlugin from being used
+    plugins: [
+        ...serverCommonConfig.plugins,
+    ],
+    // Ensure paths are resolved correctly
+    resolve: {
+        ...serverCommonConfig.resolve,
+        alias: {
+            '/server/ui/main.jsx': path.resolve(__dirname, 'ui/main.jsx')
+        }
+    }
 };
 
 const clientProductionConfig = {
@@ -227,6 +328,13 @@ const serverProductionConfig = {
     name: 'server-production',
     mode: 'production',
     devtool: false,
+    // Ensure paths are resolved correctly
+    resolve: {
+        ...serverCommonConfig.resolve,
+        alias: {
+            '/server/ui/main.jsx': path.resolve(__dirname, 'ui/main.jsx')
+        }
+    }
 };
 
 module.exports = [
