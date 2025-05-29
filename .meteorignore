@@ -1,6 +1,6 @@
 .meteor/local
 dist
 ui
-shared
 api
 templates
+stats.html
